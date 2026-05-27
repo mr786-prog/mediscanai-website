@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<section class="report-shell glass-card">
+    <h2>Diagnosis Result</h2>
+    <div class="report-summary">
+        <p><strong>Date:</strong> {{ record.created_at }}</p>
+        <p><strong>Symptoms:</strong> {{ record.symptoms }}</p>
+        <p><strong>Duration:</strong> {{ record.symptom_duration }}</p>
+        <p><strong>Severity:</strong> {{ record.severity }}</p>
+        <p><strong>Urgency:</strong> {{ record.urgency }}</p>
+    </div>
+
+    <div class="report-output">
+        <pre>{{ record.diagnosis_text }}</pre>
+    </div>
+
+    {% if record.report_filename %}
+        <a class="button secondary" href="{{ url_for('download_report', filename=record.report_filename) }}">Download PDF Report</a>
+    {% endif %}
+</section>
+{% endblock %}

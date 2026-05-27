@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<section class="form-shell glass-card">
+    <h2>Create Your MediScan Account</h2>
+    <form method="post">
+        <label for="username">Choose a User ID</label>
+        <input id="username" name="username" type="text" required autocomplete="username">
+
+        <label for="password">Password</label>
+        <input id="password" name="password" type="password" required autocomplete="new-password">
+
+        <label for="password_confirm">Confirm Password</label>
+        <input id="password_confirm" name="password_confirm" type="password" required autocomplete="new-password">
+
+        <button class="button primary" type="submit">Register</button>
+    </form>
+    <p class="form-note">Already registered? <a href="{{ url_for('login') }}">Login now</a>.</p>
+</section>
+{% endblock %}

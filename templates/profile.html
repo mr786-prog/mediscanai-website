@@ -1,0 +1,64 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<section class="form-shell glass-card">
+    <h2>Patient Profile</h2>
+    <form method="post">
+        <label for="name">Full Name</label>
+        <input id="name" name="name" type="text" value="{{ patient.name if patient else '' }}" required>
+
+        <label for="age">Age</label>
+        <input id="age" name="age" type="number" min="0" value="{{ patient.age if patient else '' }}" required>
+
+        <label for="gender">Gender</label>
+        <select id="gender" name="gender" required>
+            <option value="">Select gender</option>
+            {% for option in ['Male', 'Female', 'Other'] %}
+                <option value="{{ option }}" {% if patient and patient.gender == option %}selected{% endif %}>{{ option }}</option>
+            {% endfor %}
+        </select>
+
+        <label for="weight">Weight (kg)</label>
+        <input id="weight" name="weight" type="number" step="0.1" value="{{ patient.weight if patient else '' }}">
+
+        <label for="height">Height (cm)</label>
+        <input id="height" name="height" type="number" step="0.1" value="{{ patient.height if patient else '' }}">
+
+        <label for="chronic_diseases">Chronic Diseases</label>
+        <textarea id="chronic_diseases" name="chronic_diseases">{{ patient.chronic_diseases if patient else '' }}</textarea>
+
+        <label for="previous_surgeries">Previous Surgeries</label>
+        <textarea id="previous_surgeries" name="previous_surgeries">{{ patient.previous_surgeries if patient else '' }}</textarea>
+
+        <label for="allergies">Allergies</label>
+        <textarea id="allergies" name="allergies">{{ patient.allergies if patient else '' }}</textarea>
+
+        <label for="current_medications">Current Medications</label>
+        <textarea id="current_medications" name="current_medications">{{ patient.current_medications if patient else '' }}</textarea>
+
+        <label for="smoking">Smoking</label>
+        <select id="smoking" name="smoking">
+            <option value="">Select</option>
+            {% for option in ['Yes', 'No'] %}
+                <option value="{{ option }}" {% if patient and patient.smoking == option %}selected{% endif %}>{{ option }}</option>
+            {% endfor %}
+        </select>
+
+        <label for="alcohol">Alcohol</label>
+        <select id="alcohol" name="alcohol">
+            <option value="">Select</option>
+            {% for option in ['Yes', 'No'] %}
+                <option value="{{ option }}" {% if patient and patient.alcohol == option %}selected{% endif %}>{{ option }}</option>
+            {% endfor %}
+        </select>
+
+        <label for="exercise_frequency">Exercise Frequency</label>
+        <input id="exercise_frequency" name="exercise_frequency" type="text" value="{{ patient.exercise_frequency if patient else '' }}">
+
+        <label for="sleep_hours">Sleep Hours per Night</label>
+        <input id="sleep_hours" name="sleep_hours" type="number" step="0.1" value="{{ patient.sleep_hours if patient else '' }}">
+
+        <button class="button primary" type="submit">Save Profile</button>
+    </form>
+</section>
+{% endblock %}

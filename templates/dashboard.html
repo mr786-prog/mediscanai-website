@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<section class="dashboard-shell">
+    <div class="dashboard-grid">
+        <article class="glass-card dashboard-card">
+            <h2>Welcome back, {{ user.username }}</h2>
+            {% if patient %}
+                <p class="info-line">Patient: <strong>{{ patient.name }}</strong></p>
+                <p class="info-line">Age: {{ patient.age }} | Gender: {{ patient.gender }}</p>
+                <p class="info-line">Status: Profile complete</p>
+            {% else %}
+                <p class="info-line">Profile not set up yet.</p>
+                <a class="button secondary" href="{{ url_for('profile') }}">Complete Profile</a>
+            {% endif %}
+            <div class="dashboard-actions">
+                <a class="button primary" href="{{ url_for('new_diagnosis') }}">New Diagnosis</a>
+                <a class="button secondary" href="{{ url_for('history') }}">View History</a>
+            </div>
+        </article>
+
+        <article class="glass-card dashboard-card">
+            <h3>Recent Diagnoses</h3>
+            {% if history %}
+                <ul class="history-list">
+                    {% for record in history[:5] %}
+                        <li>
+                            <span>{{ record.created_at }}</span>
+                            <a class="small-link" href="{{ url_for('diagnosis_result', history_id=record.history_id) }}">View report</a>
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p>No diagnosis history available.</p>
+            {% endif %}
+        </article>
+    </div>
+</section>
+{% endblock %}

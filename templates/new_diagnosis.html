@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<section class="form-shell glass-card">
+    <h2>New Diagnosis</h2>
+    <p>Share symptoms in detail and receive a professional diagnosis report.</p>
+
+    <form method="post">
+        <label for="symptoms">Symptoms</label>
+        <textarea id="symptoms" name="symptoms" rows="5" required>{{ request.form.symptoms or '' }}</textarea>
+
+        <label for="duration">Duration</label>
+        <input id="duration" name="duration" type="text" value="{{ request.form.duration or '' }}" required>
+
+        <label for="severity">Severity</label>
+        <select id="severity" name="severity" required>
+            <option value="">Select severity</option>
+            {% for option in ['Mild', 'Moderate', 'Severe'] %}
+                <option value="{{ option }}" {% if request.form.severity == option %}selected{% endif %}>{{ option }}</option>
+            {% endfor %}
+        </select>
+
+        <button class="button primary" type="submit">Submit for Diagnosis</button>
+    </form>
+</section>
+{% endblock %}

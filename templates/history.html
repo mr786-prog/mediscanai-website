@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<section class="history-shell">
+    <h2>Diagnosis History</h2>
+    {% if records %}
+        <div class="history-grid">
+            {% for record in records %}
+                <article class="history-card glass-card">
+                    <p><strong>Date:</strong> {{ record.created_at }}</p>
+                    <p><strong>Symptoms:</strong> {{ record.symptoms }}</p>
+                    <p><strong>Severity:</strong> {{ record.severity }}</p>
+                    <p><strong>Urgency:</strong> {{ record.urgency }}</p>
+                    <div class="history-card-actions">
+                        <a class="button small" href="{{ url_for('diagnosis_result', history_id=record.history_id) }}">View</a>
+                        {% if record.report_filename %}
+                            <a class="button secondary small" href="{{ url_for('download_report', filename=record.report_filename) }}">Download</a>
+                        {% endif %}
+                    </div>
+                </article>
+            {% endfor %}
+        </div>
+    {% else %}
+        <p>No diagnosis history available yet. Start a new diagnosis to generate your first report.</p>
+    {% endif %}
+</section>
+{% endblock %}

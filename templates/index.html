@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<section class="hero-panel">
+    <div class="hero-copy glass-card">
+        <h1>3D Medical Intelligence for modern care.</h1>
+        <p>Register, complete your profile, submit symptoms, and receive AI-assisted medical guidance with a downloadable professional report.</p>
+        <div class="hero-actions">
+            {% if user %}
+                <a class="button primary" href="{{ url_for('dashboard') }}">Go to Dashboard</a>
+            {% else %}
+                <a class="button primary" href="{{ url_for('register') }}">Create Account</a>
+                <a class="button secondary" href="{{ url_for('login') }}">Login</a>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="hero-visual glass-card glass-3d">
+        <div class="device-shell">
+            <div class="ui-panel">
+                <div class="ui-topbar"></div>
+                <div class="ui-content">
+                    <h2>MediScan AI</h2>
+                    <p>Smart diagnosis workflows with secure login, patient profile, and PDF medical reports.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}
