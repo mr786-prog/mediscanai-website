@@ -121,6 +121,14 @@ Please provide:
 7. Professional next-step recommendations.
 
 Use a professional clinical tone. Do not claim to replace a licensed doctor.
+
+The output shuld be like in the format
+first give the top 3 disease which the pateint is affected by
+Disease 1: Name of the disease in that frmat
+then give the home remedies the person the do 
+then give the medicines (that are avaliable in india) that he / she can take
+the at last give the urgency level of the disease and the red flags that the person should look for and if he / she should go to the doctor immediately or not
+
 """
 
     headers = {
