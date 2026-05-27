@@ -4,7 +4,7 @@
 <section class="hero-panel">
     <div class="hero-copy glass-card">
         <h1>3D Medical Intelligence for modern care.</h1>
-        <p>Register, complete your profile, submit symptoms, and receive AI-assisted medical guidance with a downloadable professional report.</p>
+        <p>Register, complete your medical profile, submit details on current symptoms, and receive precise AI-assisted clinical diagnosis and structured prescription sheets.</p>
         <div class="hero-actions">
             {% if user %}
                 <a class="button primary" href="{{ url_for('dashboard') }}">Go to Dashboard</a>
@@ -16,14 +16,16 @@
     </div>
 
     <div class="hero-visual glass-card glass-3d">
-        <div class="device-shell">
-            <div class="ui-panel">
-                <div class="ui-topbar"></div>
-                <div class="ui-content">
-                    <h2>MediScan AI</h2>
-                    <p>Smart diagnosis workflows with secure login, patient profile, and PDF medical reports.</p>
-                </div>
+        <div class="dna-container-3d" id="dna-container-3d">
+            <!-- Three.js renders 3D DNA Helix here -->
+            <div class="dna-loading">
+                <div class="pulse-loader"></div>
+                <span>Initializing 3D DNA Visualizer...</span>
             </div>
+        </div>
+        <div class="visual-badge">
+            <span class="pulse-dot"></span>
+            <span>Interactive 3D Helix (Hover & Drag)</span>
         </div>
     </div>
 </section>

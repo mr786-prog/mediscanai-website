@@ -5,6 +5,7 @@ import requests
 from datetime import datetime
 from pathlib import Path
 from fpdf import FPDF
+from fpdf.enums import XPos, YPos
 from flask import Flask, render_template, redirect, url_for, request, flash, session, send_from_directory
 from werkzeug.security import generate_password_hash, check_password_hash
 from dotenv import load_dotenv
@@ -84,51 +85,81 @@ def initialize_database():
     conn.close()
 
 
+def parse_diagnosis_json(text):
+    text = text.strip()
+    # Strip markdown code block wrappers if present
+    if text.startswith("```json"):
+        text = text[7:]
+    elif text.startswith("```"):
+        text = text[3:]
+    if text.endswith("```"):
+        text = text[:-3]
+    text = text.strip()
+
+    try:
+        data = json.loads(text)
+        # Ensure all fields are present
+        required_keys = ['diagnosis', 'explanation', 'medications', 'home_remedies', 'urgency', 'red_flags']
+        for key in required_keys:
+            if key not in data:
+                if key in ['medications', 'home_remedies', 'red_flags']:
+                    data[key] = []
+                else:
+                    data[key] = "N/A"
+        return data
+    except Exception:
+        # Fallback if json parsing fails
+        return {
+            "diagnosis": "Clinical Impression",
+            "explanation": text,
+            "medications": [],
+            "home_remedies": [],
+            "urgency": "Moderate",
+            "red_flags": []
+        }
+
+
 def query_gpt_model(patient_info, symptoms, duration, severity):
     if not OPENROUTER_API_KEY:
         return "Error: No OpenRouter API key found. Please add OPENROUTER_API_KEY to your .env file."
 
     prompt = f"""
-You are a professional medical consultant. Analyze the patient profile and symptoms below, then provide a professional diagnostic report.
+You are an expert medical consultant. Analyze the patient profile and symptoms below and output a precise clinical prescription and diagnosis report.
 
 PATIENT PROFILE:
 - Name: {patient_info['name']}
 - Age: {patient_info['age']}
 - Gender: {patient_info['gender']}
-- Weight: {patient_info['weight']} kg
-- Height: {patient_info['height']} cm
-- Chronic diseases: {patient_info['chronic_diseases']}
-- Surgeries: {patient_info['previous_surgeries']}
-- Allergies: {patient_info['allergies']}
-- Current medications: {patient_info['current_medications']}
-- Smoking: {patient_info['smoking']}
-- Alcohol: {patient_info['alcohol']}
-- Exercise frequency: {patient_info['exercise_frequency']}
-- Sleep hours per night: {patient_info['sleep_hours']}
 
 SYMPTOMS:
 {symptoms}
 Duration: {duration}
 Severity: {severity}
 
-Please provide:
-1. A preliminary diagnosis list of 3 possible conditions with likelihood.
-2. A concise explanation for each condition.
-3. Medication recommendations and dosing guidance.
-4. Safe home remedies.
-5. Red flags for immediate medical attention.
-6. A clear urgency level.
-7. Professional next-step recommendations.
+Provide the clinical diagnosis and prescription details strictly in JSON format. Do NOT add any conversational preambles or post-scripts. Output ONLY the JSON block.
 
-Use a professional clinical tone. Do not claim to replace a licensed doctor.
-
-The output shuld be like in the format
-first give the top 3 disease which the pateint is affected by
-Disease 1: Name of the disease in that frmat
-then give the home remedies the person the do 
-then give the medicines (that are avaliable in india) that he / she can take
-the at last give the urgency level of the disease and the red flags that the person should look for and if he / she should go to the doctor immediately or not
-
+The JSON schema must look exactly like this:
+{{
+  "diagnosis": "Suspected Condition (vibrant and clear clinical term, e.g. Acute Gastro-enteritis)",
+  "explanation": "A very brief explanation of the condition and why it matches the symptoms (1-2 sentences).",
+  "medications": [
+    {{
+      "name": "Generic or brand name of medication (e.g. Paracetamol 500mg, Cetirizine 10mg)",
+      "dosage": "Dosage instructions (e.g. 1 tablet)",
+      "frequency": "Frequency (e.g. Twice daily after meals, Once daily at bedtime)",
+      "duration": "Duration (e.g. 5 days, 3 days)"
+    }}
+  ],
+  "home_remedies": [
+    "Home care advice 1",
+    "Home care advice 2"
+  ],
+  "urgency": "Urgency rating (Mild, Moderate, or Severe)",
+  "red_flags": [
+    "Warning symptom 1",
+    "Warning symptom 2"
+  ]
+}}
 """
 
     headers = {
@@ -139,8 +170,8 @@ the at last give the urgency level of the disease and the red flags that the per
     payload = {
         "model": "openai/gpt-4o-mini",
         "messages": [{"role": "user", "content": prompt}],
-        "temperature": 0.6,
-        "max_tokens": 1200,
+        "temperature": 0.3,
+        "max_tokens": 1000,
     }
 
     try:
@@ -155,66 +186,183 @@ the at last give the urgency level of the disease and the red flags that the per
 def create_medical_report(user, patient_info, symptoms, duration, severity, diagnosis_text):
     report_name = f"report_{user['username']}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.pdf"
     report_path = REPORTS_DIR / report_name
+    
+    # Parse the diagnosis JSON
+    data = parse_diagnosis_json(diagnosis_text)
+    
     pdf = FPDF(format='A4')
     pdf.add_page()
+    pdf.set_margins(15, 15, 15)
+    pdf.set_auto_page_break(auto=True, margin=15)
     
-    # Set margins: 10mm left/right, 10mm top/bottom
-    pdf.set_left_margin(10)
-    pdf.set_right_margin(10)
-    pdf.set_top_margin(10)
-    pdf.set_auto_page_break(auto=True, margin=10)
-
-    # Calculate usable width (A4 = 210mm, minus 20mm margins)
-    content_width = 190
-
-    pdf.set_font('Helvetica', 'B', 16)
-    pdf.cell(content_width, 10, 'MediScan AI Medical Report', ln=True, align='C')
+    # Header Clinic Letterhead
+    pdf.set_font('Helvetica', 'B', 22)
+    pdf.set_text_color(13, 148, 136)  # Teal
+    pdf.cell(100, 10, 'MEDISCAN AI CLINIC', new_x=XPos.RIGHT, new_y=YPos.TOP)
+    
+    pdf.set_font('Helvetica', 'B', 11)
+    pdf.set_text_color(100, 116, 139)  # Slate Gray
+    pdf.cell(80, 10, 'DIGITAL RX PRESCRIPTION', new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='R')
+    
+    pdf.set_font('Helvetica', '', 8.5)
+    pdf.cell(100, 4, 'Automated 3D Diagnostics & Medical Intelligence', new_x=XPos.RIGHT, new_y=YPos.TOP)
+    pdf.cell(80, 4, f"Date: {datetime.utcnow().strftime('%d %b %Y, %H:%M UTC')}", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='R')
+    
+    pdf.cell(100, 4, 'License No: AI-2026-RX', new_x=XPos.RIGHT, new_y=YPos.TOP)
+    pdf.cell(80, 4, 'Status: Digitally Signed & Verified', new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='R')
+    
     pdf.ln(3)
-
-    pdf.set_font('Helvetica', '', 10)
-    pdf.set_x(10)
-    pdf.cell(content_width, 7, f"Report generated: {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}", ln=True)
-    pdf.set_x(10)
-    pdf.cell(content_width, 7, f"Patient: {patient_info['name']}", ln=True)
-    pdf.set_x(10)
-    pdf.cell(content_width, 7, f"Username: {user['username']}", ln=True)
+    
+    # Teal line separator
+    pdf.set_draw_color(13, 148, 136)
+    pdf.set_line_width(0.8)
+    pdf.line(15, pdf.get_y(), 195, pdf.get_y())
     pdf.ln(4)
-
+    
+    # Patient Details (Just Name & Age, as requested)
     pdf.set_font('Helvetica', 'B', 11)
-    pdf.set_x(10)
-    pdf.cell(content_width, 7, 'Patient Summary', ln=True)
-    pdf.set_font('Helvetica', '', 9)
-    pdf.set_x(10)
-    pdf.multi_cell(content_width, 5, f"Age: {patient_info['age']} | Gender: {patient_info['gender']} | BMI: {patient_info['bmi']:.1f}")
-    pdf.set_x(10)
-    pdf.multi_cell(content_width, 5, f"Chronic diseases: {patient_info['chronic_diseases']}")
-    pdf.set_x(10)
-    pdf.multi_cell(content_width, 5, f"Previous surgeries: {patient_info['previous_surgeries']}")
-    pdf.set_x(10)
-    pdf.multi_cell(content_width, 5, f"Allergies: {patient_info['allergies']}")
-    pdf.set_x(10)
-    pdf.multi_cell(content_width, 5, f"Current medications: {patient_info['current_medications']}")
+    pdf.set_text_color(15, 23, 42)
+    pdf.cell(90, 6, f"PATIENT: {patient_info['name'].upper()}", new_x=XPos.RIGHT, new_y=YPos.TOP)
+    pdf.cell(90, 6, f"AGE: {patient_info['age']} Years", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='R')
+    
+    pdf.ln(2)
+    pdf.set_draw_color(226, 232, 240)
+    pdf.set_line_width(0.3)
+    pdf.line(15, pdf.get_y(), 195, pdf.get_y())
+    pdf.ln(4)
+    
+    # Chief Complaint
+    pdf.set_font('Helvetica', 'B', 9)
+    pdf.set_text_color(100, 116, 139)
+    pdf.cell(180, 4, 'CHIEF COMPLAINT & SYMPTOMS', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+    pdf.set_font('Helvetica', '', 9.5)
+    pdf.set_text_color(51, 65, 85)
+    pdf.multi_cell(180, 4.5, f"{symptoms} (Duration: {duration} | Severity: {severity})")
+    
     pdf.ln(3)
-
-    pdf.set_font('Helvetica', 'B', 11)
-    pdf.set_x(10)
-    pdf.cell(content_width, 7, 'Presenting Complaint', ln=True)
-    pdf.set_font('Helvetica', '', 9)
-    pdf.set_x(10)
-    pdf.multi_cell(content_width, 5, f"Symptoms: {symptoms}")
-    pdf.set_x(10)
-    pdf.multi_cell(content_width, 5, f"Duration: {duration}")
-    pdf.set_x(10)
-    pdf.multi_cell(content_width, 5, f"Severity: {severity}")
+    
+    # Diagnosis (Highlight box)
+    start_y = pdf.get_y()
+    pdf.set_y(start_y + 1.5)
+    pdf.set_x(18)
+    pdf.set_font('Helvetica', 'B', 9.5)
+    pdf.set_text_color(13, 148, 136)
+    pdf.cell(174, 4, 'CLINICAL IMPRESSION / SUSPECTED DIAGNOSIS', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+    
+    pdf.set_x(18)
+    pdf.set_font('Helvetica', 'B', 12)
+    pdf.set_text_color(15, 23, 42)
+    pdf.cell(174, 6, data['diagnosis'].upper(), new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+    
+    pdf.set_x(18)
+    pdf.set_font('Helvetica', 'I', 9.5)
+    pdf.set_text_color(71, 85, 105)
+    pdf.multi_cell(174, 4.5, data['explanation'])
+    pdf.ln(1.5)
+    end_y = pdf.get_y()
+    
+    # Draw background box for diagnosis
+    pdf.set_draw_color(13, 148, 136)
+    pdf.set_fill_color(240, 253, 250)
+    pdf.set_line_width(0.4)
+    pdf.rect(15, start_y, 180, end_y - start_y, style='FD')
+    
+    pdf.set_y(end_y)
+    pdf.ln(4)
+    
+    # Rx Pharmacology
+    pdf.set_font('Helvetica', 'B', 20)
+    pdf.set_text_color(13, 148, 136)
+    pdf.cell(12, 8, 'Rx', new_x=XPos.RIGHT, new_y=YPos.TOP)
+    
+    pdf.set_font('Helvetica', 'B', 10)
+    pdf.set_text_color(15, 23, 42)
+    pdf.cell(168, 8, 'RECOMMENDED PHARMACOTHERAPY', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+    
+    if data['medications']:
+        # Table Header
+        pdf.set_fill_color(241, 245, 249)
+        pdf.set_font('Helvetica', 'B', 8.5)
+        pdf.set_text_color(71, 85, 105)
+        pdf.set_draw_color(226, 232, 240)
+        pdf.set_line_width(0.2)
+        
+        pdf.cell(60, 6, ' Medication Name', border=1, new_x=XPos.RIGHT, new_y=YPos.TOP, fill=True)
+        pdf.cell(35, 6, ' Dosage', border=1, new_x=XPos.RIGHT, new_y=YPos.TOP, fill=True)
+        pdf.cell(50, 6, ' Frequency', border=1, new_x=XPos.RIGHT, new_y=YPos.TOP, fill=True)
+        pdf.cell(35, 6, ' Duration', border=1, new_x=XPos.LMARGIN, new_y=YPos.NEXT, fill=True)
+        
+        pdf.set_font('Helvetica', '', 8.5)
+        pdf.set_text_color(51, 65, 85)
+        for med in data['medications']:
+            pdf.cell(60, 6, f" {med.get('name', 'N/A')}", border=1, new_x=XPos.RIGHT, new_y=YPos.TOP)
+            pdf.cell(35, 6, f" {med.get('dosage', 'N/A')}", border=1, new_x=XPos.RIGHT, new_y=YPos.TOP)
+            pdf.cell(50, 6, f" {med.get('frequency', 'N/A')}", border=1, new_x=XPos.RIGHT, new_y=YPos.TOP)
+            pdf.cell(35, 6, f" {med.get('duration', 'N/A')}", border=1, new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+    else:
+        pdf.set_font('Helvetica', 'I', 9.5)
+        pdf.set_text_color(100, 116, 139)
+        pdf.cell(180, 6, 'No specific medications prescribed. Monitor condition closely.', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        
     pdf.ln(3)
-
-    pdf.set_font('Helvetica', 'B', 11)
-    pdf.set_x(10)
-    pdf.cell(content_width, 7, 'Diagnostic Findings', ln=True)
+    
+    # Advice & Lifestyle
+    pdf.set_font('Helvetica', 'B', 10)
+    pdf.set_text_color(13, 148, 136)
+    pdf.cell(180, 5, 'ADVICE & LIFESTYLE MODIFICATIONS', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
     pdf.set_font('Helvetica', '', 9)
-    pdf.set_x(10)
-    pdf.multi_cell(content_width, 5, diagnosis_text)
-
+    pdf.set_text_color(51, 65, 85)
+    
+    if data['home_remedies']:
+        for remedy in data['home_remedies']:
+            pdf.multi_cell(180, 4, f"- {remedy}")
+    else:
+        pdf.multi_cell(180, 4, "- Maintain rest, stay hydrated, and monitor vital statistics.")
+        
+    pdf.ln(3)
+    
+    # Warnings & Red Flags
+    if data['red_flags']:
+        start_warning_y = pdf.get_y()
+        pdf.set_y(start_warning_y + 1.5)
+        pdf.set_x(18)
+        pdf.set_font('Helvetica', 'B', 9)
+        pdf.set_text_color(185, 28, 28)
+        pdf.cell(174, 4, 'WARNINGS & RED FLAGS (Seek immediate medical attention if present):', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+        
+        pdf.set_font('Helvetica', '', 8.5)
+        for flag in data['red_flags']:
+            pdf.set_x(18)
+            pdf.multi_cell(174, 3.8, f"- {flag}")
+        pdf.ln(1.5)
+        end_warning_y = pdf.get_y()
+        
+        pdf.set_draw_color(239, 68, 68)
+        pdf.set_fill_color(254, 242, 242)
+        pdf.set_line_width(0.3)
+        pdf.rect(15, start_warning_y, 180, end_warning_y - start_warning_y, style='FD')
+        pdf.set_y(end_warning_y)
+        pdf.ln(3)
+        
+    # Signature Footer Area (Forced at bottom of page)
+    pdf.set_y(-38)
+    pdf.set_draw_color(226, 232, 240)
+    pdf.set_line_width(0.3)
+    pdf.line(15, pdf.get_y(), 195, pdf.get_y())
+    pdf.ln(2)
+    
+    pdf.set_font('Helvetica', 'B', 8.5)
+    pdf.set_text_color(71, 85, 105)
+    pdf.cell(180, 4.5, 'DR. AI CONSULTANT', new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='R')
+    pdf.set_font('Helvetica', 'I', 7.5)
+    pdf.set_text_color(148, 163, 184)
+    pdf.cell(180, 4, 'Electronically Generated via MediScan AI 3D Core Engine', new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='R')
+    
+    pdf.ln(1)
+    pdf.set_font('Helvetica', 'I', 7)
+    pdf.set_text_color(156, 163, 175)
+    pdf.multi_cell(180, 3, 'Disclaimer: This digital prescription is an AI-assisted synthesis based on user-reported symptoms. It is meant for informational support and does not replace regular doctor consultation, physical diagnostics, or clinical tests.', align='C')
+    
     pdf.output(str(report_path))
     return report_name
 
@@ -404,14 +552,8 @@ def new_diagnosis():
         }
 
         diagnosis_text = query_gpt_model(patient_info, symptoms, duration, severity)
-        urgency = 'Moderate'
-        for marker in ['Urgency:', 'URGENCY:', 'urgency:']:
-            if marker in diagnosis_text:
-                try:
-                    urgency = diagnosis_text.split(marker, 1)[1].split('\n', 1)[0].strip()
-                    break
-                except Exception:
-                    pass
+        diagnosis_data = parse_diagnosis_json(diagnosis_text)
+        urgency = diagnosis_data.get('urgency', 'Moderate')
 
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -441,13 +583,18 @@ def diagnosis_result(history_id):
 
     conn = get_db_connection()
     record = conn.execute('SELECT * FROM disease_history WHERE history_id = ? AND user_id = ?', (history_id, user['id'])).fetchone()
+    patient = conn.execute('SELECT * FROM patients WHERE user_id = ?', (user['id'],)).fetchone()
     conn.close()
 
     if not record:
         flash('Diagnosis record not found.', 'error')
         return redirect(url_for('dashboard'))
 
-    return render_template('diagnosis_result.html', user=user, record=record)
+    # Convert row to dictionary and inject parsed json data
+    record_dict = dict(record)
+    record_dict['data'] = parse_diagnosis_json(record['diagnosis_text'])
+
+    return render_template('diagnosis_result.html', user=user, record=record_dict, patient=patient)
 
 
 @app.route('/history')

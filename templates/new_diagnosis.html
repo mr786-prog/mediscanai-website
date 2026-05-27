@@ -1,16 +1,34 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<section class="form-shell glass-card">
-    <h2>New Diagnosis</h2>
-    <p>Share symptoms in detail and receive a professional diagnosis report.</p>
+<!-- Holographic 3D Scan Overlay -->
+<div id="scan-overlay" class="scan-overlay hidden">
+    <div class="scan-card glass-card">
+        <div class="scan-viewport" id="scan-viewport">
+            <!-- Three.js will render scanning objects here -->
+        </div>
+        <div class="scan-radar-line"></div>
+        <h3 class="scan-title">Analyzing Patient Biomarkers...</h3>
+        <p class="scan-status-text">Initializing AI clinical analysis engine...</p>
+        <div class="scan-progress-container">
+            <div class="scan-progress-bar" id="scan-progress-bar"></div>
+        </div>
+        <div class="scan-logs" id="scan-logs">
+            <div class="log-entry">[SYSTEM] Initializing 3D Diagnosis Matrix...</div>
+        </div>
+    </div>
+</div>
 
-    <form method="post">
+<section class="form-shell glass-card" id="form-container">
+    <h2>New Diagnosis</h2>
+    <p>Describe your current symptoms in detail to generate a digital Rx prescription slip.</p>
+
+    <form method="post" id="diagnosis-form">
         <label for="symptoms">Symptoms</label>
-        <textarea id="symptoms" name="symptoms" rows="5" required>{{ request.form.symptoms or '' }}</textarea>
+        <textarea id="symptoms" name="symptoms" rows="5" placeholder="e.g., Throbbing headache, high fever, sore throat for 2 days" required>{{ request.form.symptoms or '' }}</textarea>
 
         <label for="duration">Duration</label>
-        <input id="duration" name="duration" type="text" value="{{ request.form.duration or '' }}" required>
+        <input id="duration" name="duration" type="text" placeholder="e.g., 3 Days, 1 Week" value="{{ request.form.duration or '' }}" required>
 
         <label for="severity">Severity</label>
         <select id="severity" name="severity" required>
@@ -20,7 +38,7 @@
             {% endfor %}
         </select>
 
-        <button class="button primary" type="submit">Submit for Diagnosis</button>
+        <button class="button primary" type="submit">Submit for AI Diagnosis</button>
     </form>
 </section>
 {% endblock %}

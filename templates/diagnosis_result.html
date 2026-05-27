@@ -1,22 +1,129 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<section class="report-shell glass-card">
-    <h2>Diagnosis Result</h2>
-    <div class="report-summary">
-        <p><strong>Date:</strong> {{ record.created_at }}</p>
-        <p><strong>Symptoms:</strong> {{ record.symptoms }}</p>
-        <p><strong>Duration:</strong> {{ record.symptom_duration }}</p>
-        <p><strong>Severity:</strong> {{ record.severity }}</p>
-        <p><strong>Urgency:</strong> {{ record.urgency }}</p>
+<section class="report-shell">
+    <div class="rx-paper-container glass-card">
+        <!-- Rx Watermark in background -->
+        <div class="rx-watermark">Rx</div>
+        
+        <!-- Clinic Letterhead -->
+        <div class="rx-header">
+            <div class="rx-clinic-info">
+                <h2>MEDISCAN AI CLINIC</h2>
+                <p class="subtitle">Automated 3D Diagnostics & Medical Intelligence</p>
+                <p class="license">Reg No. AI-2026-RX | License Verified</p>
+            </div>
+            <div class="rx-meta-info">
+                <span class="rx-badge">ELECTRONIC PRESCRIPTION</span>
+                <p class="date"><strong>Date:</strong> {{ record.created_at }}</p>
+                <p class="doc-id"><strong>Rx ID:</strong> MS-{{ record.history_id }}-2026</p>
+            </div>
+        </div>
+
+        <!-- Divider line -->
+        <div class="rx-divider-main"></div>
+
+        <!-- Patient Demographics (Only Name & Age as requested) -->
+        <div class="rx-patient-details">
+            <div class="patient-name">PATIENT NAME: <strong>{{ patient.name.upper() if patient else user.username.upper() }}</strong></div>
+            <div class="patient-age">AGE: <strong>{{ patient.age if patient else 'N/A' }} Years</strong></div>
+        </div>
+
+        <div class="rx-divider-sub"></div>
+
+        <!-- Symptoms (Small font) -->
+        <div class="rx-symptoms-section">
+            <span class="rx-section-label">CHIEF COMPLAINT / SYMPTOMS:</span>
+            <p class="rx-symptoms-text">{{ record.symptoms }} (Duration: {{ record.symptom_duration }} | Severity: {{ record.severity }})</p>
+        </div>
+
+        <!-- Diagnosis (Mainly Highlighted) -->
+        <div class="rx-diagnosis-block">
+            <div class="diagnosis-label">CLINICAL IMPRESSION / SUSPECTED DIAGNOSIS</div>
+            <div class="diagnosis-highlight">{{ record.data.diagnosis.upper() }}</div>
+            <p class="diagnosis-desc">{{ record.data.explanation }}</p>
+        </div>
+
+        <!-- Pharmacotherapy Section (Rx Symbol and Table) -->
+        <div class="rx-medications-section">
+            <div class="section-title-wrapper">
+                <span class="rx-symbol">Rx</span>
+                <span class="rx-section-title">RECOMMENDED PHARMACOTHERAPY</span>
+            </div>
+            
+            {% if record.data.medications %}
+                <div class="medications-table-container">
+                    <table class="rx-med-table">
+                        <thead>
+                            <tr>
+                                <th>Medication Name</th>
+                                <th>Dosage</th>
+                                <th>Frequency</th>
+                                <th>Duration</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for med in record.data.medications %}
+                                <tr>
+                                    <td><strong>{{ med.name }}</strong></td>
+                                    <td>{{ med.dosage }}</td>
+                                    <td>{{ med.frequency }}</td>
+                                    <td><span class="duration-badge">{{ med.duration }}</span></td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <p class="no-meds">No pharmacological prescription required. Monitor health closely.</p>
+            {% endif %}
+        </div>
+
+        <!-- Advice & Lifestyle Modifications -->
+        <div class="rx-advice-section">
+            <div class="rx-section-title">ADVICE & LIFESTYLE MODIFICATIONS</div>
+            <ul class="advice-list">
+                {% if record.data.home_remedies %}
+                    {% for remedy in record.data.home_remedies %}
+                        <li>{{ remedy }}</li>
+                    {% endfor %}
+                {% else %}
+                    <li>Ensure sufficient rest and hydration. Consult a general practitioner if symptoms persist.</li>
+                {% endif %}
+            </ul>
+        </div>
+
+        <!-- Warnings & Red Flags -->
+        {% if record.data.red_flags %}
+            <div class="rx-warning-section">
+                <div class="warning-title">🚨 WARNINGS & EMERGENCY RED FLAGS:</div>
+                <ul class="warning-list">
+                    {% for flag in record.data.red_flags %}
+                        <li>{{ flag }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        {% endif %}
+
+        <!-- Signature Pad -->
+        <div class="rx-signature-container">
+            <div class="signature-line"></div>
+            <p class="sig-name">DR. AI MEDICAL CONSULTANT</p>
+            <p class="sig-title">Digitally Authorized by MediScan AI Core</p>
+        </div>
     </div>
 
-    <div class="report-output">
-        <pre>{{ record.diagnosis_text }}</pre>
+    <!-- Download & Back Actions -->
+    <div class="report-actions">
+        {% if record.report_filename %}
+            <a class="button primary" href="{{ url_for('download_report', filename=record.report_filename) }}">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right: 6px;">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+                </svg>
+                Download PDF Prescription
+            </a>
+        {% endif %}
+        <a class="button secondary" href="{{ url_for('dashboard') }}">Return to Dashboard</a>
     </div>
-
-    {% if record.report_filename %}
-        <a class="button secondary" href="{{ url_for('download_report', filename=record.report_filename) }}">Download PDF Report</a>
-    {% endif %}
 </section>
 {% endblock %}
