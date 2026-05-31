@@ -1,0 +1,240 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<section class="consultation-shell">
+  <div class="consultation-grid-premium">
+    
+    <!-- LEFT PANEL: CLINICAL SIDEBAR -->
+    <aside class="clinical-sidebar glass-card">
+      <div class="clinical-sidebar-header">
+        <span class="clinical-badge-tag">Electronic Health Record</span>
+        <h3>Patient Clinical Chart</h3>
+      </div>
+      
+      <!-- Bio Summary Card -->
+      <div class="clinical-card-block">
+        <div class="patient-avatar-row">
+          <div class="patient-avatar-placeholder">
+            {{ patient.name[0].upper() if patient else user.username[0].upper() }}
+          </div>
+          <div class="patient-name-meta">
+            <h4>{{ patient.name.upper() if patient else user.username.upper() }}</h4>
+            <p>{{ patient.gender }} | {{ patient.age }} Years</p>
+          </div>
+        </div>
+        
+        <div class="vitals-grid">
+          <div class="vital-item">
+            <span class="vital-label">Height</span>
+            <strong class="vital-value">{{ patient.height or 'N/A' }} <small>cm</small></strong>
+          </div>
+          <div class="vital-item">
+            <span class="vital-label">Weight</span>
+            <strong class="vital-value">{{ patient.weight or 'N/A' }} <small>kg</small></strong>
+          </div>
+          <div class="vital-item vital-accent">
+            <span class="vital-label">BMI</span>
+            <strong class="vital-value">
+              {% if patient.weight and patient.height %}
+                {{ "%.1f"|format(patient.weight / ((patient.height / 100) ** 2)) }}
+              {% else %}
+                N/A
+              {% endif %}
+            </strong>
+          </div>
+        </div>
+      </div>
+
+      <!-- Chief Complaint Block -->
+      <div class="clinical-card-block border-top">
+        <span class="sidebar-label">Baseline Chief Complaint</span>
+        <div class="complaint-bubble">
+          <p class="complaint-text">"{{ session.consultation.symptoms }}"</p>
+          <div class="complaint-meta-row">
+            <span class="badge badge-duration">⏳ {{ session.consultation.duration }}</span>
+            <span class="badge badge-severity-{{ session.consultation.severity|lower }}">⚡ {{ session.consultation.severity }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Historical Records Block -->
+      <div class="clinical-card-block border-top">
+        <span class="sidebar-label">Clinical Visit History</span>
+        {% if past_diagnoses %}
+          <div class="clinical-history-list">
+            {% for h in past_diagnoses %}
+              <div class="history-item">
+                <div class="history-header">
+                  <span class="history-date">{{ h.date }}</span>
+                  <span class="history-severity-tag severity-{{ h.severity|lower }}">{{ h.severity }}</span>
+                </div>
+                <div class="history-diag">{{ h.diagnosis }}</div>
+                <p class="history-symptom">Symptoms: {{ h.symptoms|truncate(45) }}</p>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="history-empty-state">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" class="history-empty-icon">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="16" y1="13" x2="8" y2="13"></line>
+              <line x1="16" y1="17" x2="8" y2="17"></line>
+              <polyline points="10 9 9 9 8 9"></polyline>
+            </svg>
+            <p>No previous diagnostic history on record.</p>
+          </div>
+        {% endif %}
+      </div>
+
+      <!-- Dynamic Progress block -->
+      <div class="clinical-card-block progress-section border-top">
+        <div class="progress-meta">
+          <span class="sidebar-label">Interview Progress</span>
+          <span class="progress-count">{{ answer_count }} / 10 questions (min. 3)</span>
+        </div>
+        <div class="progress-track-premium">
+          <div class="progress-fill-premium progress-fill-width-{{ answer_count }}"></div>
+        </div>
+        <p class="progress-note">Dr. AI will ask at least 3 and up to 10 follow-up questions, adapting each one to your answers before finalizing your diagnosis.</p>
+      </div>
+    </aside>
+
+    <!-- RIGHT PANEL: TELEHEALTH CONSULTATION PORT -->
+    <main class="chat-portal-shell glass-card">
+      
+      <!-- Telehealth Portal Header -->
+      <header class="telehealth-header">
+        <div class="doctor-profile-block">
+          <div class="doctor-avatar-status">
+            <div class="doctor-avatar">
+              <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>
+              </svg>
+            </div>
+            <span class="online-indicator-glow"></span>
+          </div>
+          <div class="doctor-title-block">
+            <h3>Dr. AI Specialist</h3>
+            <p class="doctor-subtitle">Active Tele-Consultation Session</p>
+          </div>
+        </div>
+        <span class="consultation-status-badge">EMPATHETIC MEDICAL INTELLIGENCE</span>
+      </header>
+
+      <!-- Active Chat History Feed -->
+      <section class="premium-chat-viewport" id="chat-viewport">
+        <div class="chat-history-feed">
+          
+          <!-- System Welcome Message -->
+          <div class="chat-system-message">
+            <span class="system-time">CONNECTED SECURELY</span>
+            <p class="system-text">Session initialized. Dr. AI is evaluating your profile, medical history, and chief complaint details.</p>
+          </div>
+
+          {% for entry in chat_history %}
+            {% if entry.role == 'ai' %}
+              <div class="chat-bubble-row doctor-row">
+                <div class="chat-avatar-mini doctor-avatar-mini">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>
+                  </svg>
+                </div>
+                <div class="chat-bubble-premium doctor-bubble-premium">
+                  <span class="chat-sender-badge">DR. AI CONSULTANT</span>
+                  <div class="bubble-content-premium">{{ entry.text }}</div>
+                </div>
+              </div>
+            {% else %}
+              <div class="chat-bubble-row patient-row">
+                <div class="chat-bubble-premium patient-bubble-premium">
+                  <span class="chat-sender-badge">PATIENT (YOU)</span>
+                  <div class="bubble-content-premium">{{ entry.text }}</div>
+                </div>
+                <div class="chat-avatar-mini patient-avatar-mini">
+                  {{ patient.name[0].upper() if patient else user.username[0].upper() }}
+                </div>
+              </div>
+            {% endif %}
+          {% endfor %}
+
+          <!-- Typing Indicator (Visible momentarily during submit) -->
+          <div class="chat-bubble-row doctor-row hidden" id="doctor-typing-indicator">
+            <div class="chat-avatar-mini doctor-avatar-mini">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>
+              </svg>
+            </div>
+            <div class="chat-bubble-premium doctor-bubble-premium typing-container">
+              <span class="chat-sender-badge">DR. AI IS THINKING...</span>
+              <div class="typing-dots">
+                <span class="dot"></span>
+                <span class="dot"></span>
+                <span class="dot"></span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- Active Interactive Reply Panel -->
+      <footer class="telehealth-input-container">
+        
+        <!-- Quick Suggestions Chips Bar -->
+        <div class="quick-replies-bar">
+          <span class="replies-label">Suggested Replies:</span>
+          <div class="chips-container">
+            <button type="button" class="quick-chip-btn" data-value="Yes, absolutely.">Yes, absolutely.</button>
+            <button type="button" class="quick-chip-btn" data-value="No, not at all.">No, not at all.</button>
+            <button type="button" class="quick-chip-btn" data-value="It is mild but constant.">Mild but constant.</button>
+            <button type="button" class="quick-chip-btn" data-value="Only when active or exerting myself.">Only when active.</button>
+            <button type="button" class="quick-chip-btn" data-value="Getting progressively worse over time.">Getting worse.</button>
+            <button type="button" class="quick-chip-btn" data-value="No, I have no other medical conditions.">No other conditions.</button>
+          </div>
+        </div>
+
+        <!-- Dictation Status Indicator -->
+        <div class="dictation-status-bar hidden" id="dictation-status">
+          <span class="dictation-pulse"></span>
+          <span class="dictation-text">Dr. AI is listening to your voice... Speak now.</span>
+        </div>
+
+        <!-- Rich Input Form Layout -->
+        <form method="post" class="telehealth-form" id="consultation-chat-form"
+              data-patient-initial="{{ patient.name[0].upper() if patient else user.username[0].upper() }}">
+          <div class="interactive-input-group">
+            
+            <!-- Voice Dictation Activation Trigger -->
+            <button type="button" class="voice-dictate-btn" id="voice-trigger" title="Speak your answer (Speech-to-Text)">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" class="mic-icon-svg">
+                <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
+                <path d="M19 10v1a7 7 0 0 1-14 0v-1"/>
+                <line x1="12" y1="19" x2="12" y2="22"/>
+              </svg>
+            </button>
+
+            <!-- Spacious response text area -->
+            <textarea id="answer" name="answer" rows="1" placeholder="Type or dictate your response here..." required></textarea>
+
+            <!-- Send Action Button -->
+            <button class="chat-send-submit-btn" type="submit" id="submit-btn" title="Send Response">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5">
+                <line x1="22" y1="2" x2="11" y2="13"/>
+                <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+              </svg>
+            </button>
+
+          </div>
+        </form>
+
+        <div class="clinical-footer-note">
+          <p>🔒 HIPAA Compliant and Secure. Your health metrics are encrypted and private.</p>
+        </div>
+      </footer>
+
+    </main>
+
+  </div>
+</section>
+{% endblock %}

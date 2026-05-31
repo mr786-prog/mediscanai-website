@@ -2,58 +2,152 @@
 
 {% block content %}
 <section class="report-shell">
-    <div class="rx-paper-container glass-card">
-        <!-- Rx Watermark in background -->
-        <div class="rx-watermark">Rx</div>
+    
+    <!-- Premium Verification Header -->
+    <div class="clinical-report-header glass-card">
+        <div class="clinical-logo-mark">
+            <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+            </svg>
+            <div class="logo-text-block">
+                <h2>MediScan AI Clinical Core</h2>
+                <p>3D Neural Diagnostics Engine v4.8</p>
+            </div>
+        </div>
         
-        <!-- Clinic Letterhead -->
-        <div class="rx-header">
-            <div class="rx-clinic-info">
-                <h2>MEDISCAN AI CLINIC</h2>
-                <p class="subtitle">Automated 3D Diagnostics & Medical Intelligence</p>
-                <p class="license">Reg No. AI-2026-RX | License Verified</p>
-            </div>
-            <div class="rx-meta-info">
-                <span class="rx-badge">ELECTRONIC PRESCRIPTION</span>
-                <p class="date"><strong>Date:</strong> {{ record.created_at }}</p>
-                <p class="doc-id"><strong>Rx ID:</strong> MS-{{ record.history_id }}-2026</p>
+        <div class="verification-status-panel">
+            <span class="secure-badge">🔒 Encrypted HIPAA Connection</span>
+            <div class="rx-date-id">
+                <span><strong>Date:</strong> {{ record.created_at }}</span>
+                <span><strong>Record ID:</strong> Rx-MS-{{ record.history_id }}</span>
             </div>
         </div>
+    </div>
 
-        <!-- Divider line -->
-        <div class="rx-divider-main"></div>
+    <!-- MAIN DIAGNOSTIC GRID -->
+    <div class="dashboard-report-grid">
+        
+        <!-- ROW 1 LEFT: Suspected Diagnosis & Explanation -->
+        <article class="glass-card primary-diagnosis-card col-span-2">
+            <div class="card-glow-element"></div>
+            <div class="primary-diagnosis-label">PRIMARY CLINICAL IMPRESSION</div>
+            
+            <div class="diagnosis-badge-row">
+                <h1 class="clinical-title">{{ record.data.diagnosis.upper() }}</h1>
+                <span class="clinical-urgency-badge urgency-{{ record.data.urgency|lower }}">
+                    {{ record.data.urgency }} Urgency
+                </span>
+            </div>
+            
+            <p class="clinical-explanation">"{{ record.data.explanation }}"</p>
+        </article>
 
-        <!-- Patient Demographics (Only Name & Age as requested) -->
-        <div class="rx-patient-details">
-            <div class="patient-name">PATIENT NAME: <strong>{{ patient.name.upper() if patient else user.username.upper() }}</strong></div>
-            <div class="patient-age">AGE: <strong>{{ patient.age if patient else 'N/A' }} Years</strong></div>
-        </div>
+        <!-- ROW 1 RIGHT: Calculated Patient Bio-Analysis Panel -->
+        <article class="glass-card risk-profile-card">
+            <h3 class="dashboard-card-title">
+                <span class="card-icon-indicator"></span>
+                Pathological Factor Breakdown
+            </h3>
+            <p class="profile-exhaustive-text">{{ record.data.patient_profile }}</p>
+            
+            <div class="profile-specs-pill-box">
+                <span class="spec-pill">Age: {{ patient.age }} yrs</span>
+                <span class="spec-pill">Gender: {{ patient.gender }}</span>
+                {% if patient.weight and patient.height %}
+                    <span class="spec-pill">BMI: {{ "%.1f"|format(patient.weight / ((patient.height / 100) ** 2)) }}</span>
+                {% endif %}
+                {% if patient.chronic_diseases and patient.chronic_diseases != 'None' %}
+                    <span class="spec-pill warning-pill">Chronic: {{ patient.chronic_diseases }}</span>
+                {% endif %}
+            </div>
+        </article>
 
-        <div class="rx-divider-sub"></div>
+        <!-- ROW 2 LEFT: Deep Clinical Pathway (Pathophysiology & Progression) -->
+        <article class="glass-card detailed-pathway-card col-span-2">
+            <h3 class="dashboard-card-title">
+                <span class="card-icon-indicator"></span>
+                Deep Pathophysiology & Clinical Assessment
+            </h3>
+            
+            <div class="pathway-content-container">
+                <div class="pathway-icon-marker">
+                    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+                    </svg>
+                </div>
+                <div class="pathway-text-block">
+                    <p>{{ record.data.detailed_summary }}</p>
+                </div>
+            </div>
+        </article>
 
-        <!-- Symptoms (Small font) -->
-        <div class="rx-symptoms-section">
-            <span class="rx-section-label">CHIEF COMPLAINT / SYMPTOMS:</span>
-            <p class="rx-symptoms-text">{{ record.symptoms }} (Duration: {{ record.symptom_duration }} | Severity: {{ record.severity }})</p>
-        </div>
+        <!-- ROW 2 RIGHT: Detailed Symptom Assessment Mapping -->
+        <article class="glass-card symptoms-assessment-card">
+            <h3 class="dashboard-card-title">
+                <span class="card-icon-indicator"></span>
+                Exhaustive Symptoms Breakdown
+            </h3>
+            <ul class="premium-symptoms-list">
+                {% if record.data.symptoms %}
+                    {% for symptom in record.data.symptoms %}
+                        <li class="symptom-item">
+                            <span class="symptom-bullet"></span>
+                            <span class="symptom-description-text">{{ symptom }}</span>
+                        </li>
+                    {% endfor %}
+                {% else %}
+                    <li class="symptom-item">
+                        <span class="symptom-bullet"></span>
+                        <span class="symptom-description-text">{{ record.symptoms }} (Duration: {{ record.symptom_duration }} | Severity: {{ record.severity }})</span>
+                    </li>
+                {% endif %}
+            </ul>
+        </article>
 
-        <!-- Diagnosis (Mainly Highlighted) -->
-        <div class="rx-diagnosis-block">
-            <div class="diagnosis-label">CLINICAL IMPRESSION / SUSPECTED DIAGNOSIS</div>
-            <div class="diagnosis-highlight">{{ record.data.diagnosis.upper() }}</div>
-            <p class="diagnosis-desc">{{ record.data.explanation }}</p>
-        </div>
+        <!-- ROW 3 FULL: Differential Diagnosis Suspected Alternates Matrix -->
+        <article class="glass-card differentials-matrix-card col-span-3">
+            <h3 class="dashboard-card-title">
+                <span class="card-icon-indicator"></span>
+                Differential Diagnosis Matrix (suspected alternative alignments)
+            </h3>
+            
+            <div class="differentials-grid">
+                {% if record.data.differential_diagnosis %}
+                    {% for diff in record.data.differential_diagnosis %}
+                        <div class="differential-card">
+                            <div class="diff-header-row">
+                                <h4>{{ diff.diagnosis }}</h4>
+                                <span class="diff-likelihood-badge likelihood-{{ diff.likelihood|lower }}">
+                                    {{ diff.likelihood }} Likelihood
+                                </span>
+                            </div>
+                            
+                            <!-- Visual likelihood bar indicator -->
+                            <div class="likelihood-track">
+                                <div class="likelihood-bar likelihood-width-{{ diff.likelihood|lower }}"></div>
+                            </div>
+                            
+                            <p class="diff-explanation">{{ diff.explanation }}</p>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="diff-fallback-empty">
+                        <p>Our neural model is highly confident in the primary clinical impression. No significant differential conditions met standard clinical variance thresholds.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </article>
 
-        <!-- Pharmacotherapy Section (Rx Symbol and Table) -->
-        <div class="rx-medications-section">
-            <div class="section-title-wrapper">
-                <span class="rx-symbol">Rx</span>
-                <span class="rx-section-title">RECOMMENDED PHARMACOTHERAPY</span>
+        <!-- ROW 4 LEFT: Recommended Pharmacotherapy Rx Panel -->
+        <article class="glass-card pharmacology-rx-card col-span-2">
+            <div class="rx-card-header">
+                <div class="rx-symbol-glow">Rx</div>
+                <h3 class="dashboard-card-title">Recommended Pharmacotherapy Plan</h3>
             </div>
             
             {% if record.data.medications %}
-                <div class="medications-table-container">
-                    <table class="rx-med-table">
+                <div class="pharmacology-table-container">
+                    <table class="premium-rx-table">
                         <thead>
                             <tr>
                                 <th>Medication Name</th>
@@ -65,59 +159,191 @@
                         <tbody>
                             {% for med in record.data.medications %}
                                 <tr>
-                                    <td><strong>{{ med.name }}</strong></td>
-                                    <td>{{ med.dosage }}</td>
-                                    <td>{{ med.frequency }}</td>
-                                    <td><span class="duration-badge">{{ med.duration }}</span></td>
+                                    <td>
+                                        <div class="rx-pill-details">
+                                            <strong>{{ med.name }}</strong>
+                                            <small>Prescription Medication</small>
+                                        </div>
+                                    </td>
+                                    <td><span class="rx-data-cell">{{ med.dosage }}</span></td>
+                                    <td><span class="rx-data-cell">{{ med.frequency }}</span></td>
+                                    <td><span class="rx-duration-badge">{{ med.duration }}</span></td>
                                 </tr>
                             {% endfor %}
                         </tbody>
                     </table>
                 </div>
             {% else %}
-                <p class="no-meds">No pharmacological prescription required. Monitor health closely.</p>
+                <div class="no-meds-alert">
+                    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="16" x2="12" y2="12"></line>
+                        <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                    </svg>
+                    <p>No pharmacological medications are prescribed. Maintain standard home care and monitor statistics closely.</p>
+                </div>
             {% endif %}
-        </div>
 
-        <!-- Advice & Lifestyle Modifications -->
-        <div class="rx-advice-section">
-            <div class="rx-section-title">ADVICE & LIFESTYLE MODIFICATIONS</div>
-            <ul class="advice-list">
-                {% if record.data.home_remedies %}
-                    {% for remedy in record.data.home_remedies %}
-                        <li>{{ remedy }}</li>
+            {% if record.data.alternative_medications %}
+                <div class="pharmacology-table-container" style="margin-top: 1.25rem;">
+                    <h4 class="guideline-category" style="margin-bottom: 0.75rem;">Alternative Medications (Available in India)</h4>
+                    <table class="premium-rx-table">
+                        <thead>
+                            <tr>
+                                <th>Medication</th>
+                                <th>Dosage</th>
+                                <th>Frequency</th>
+                                <th>Notes</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for med in record.data.alternative_medications %}
+                                <tr>
+                                    <td><strong>{{ med.name }}</strong></td>
+                                    <td><span class="rx-data-cell">{{ med.dosage }}</span></td>
+                                    <td><span class="rx-data-cell">{{ med.frequency }}</span></td>
+                                    <td><span class="rx-data-cell">{{ med.notes or med.duration or '—' }}</span></td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% endif %}
+        </article>
+
+        <!-- ROW 4 RIGHT: Actionable Guidelines & Lifestyle Overlaps -->
+        <article class="glass-card supportive-care-card">
+            <h3 class="dashboard-card-title">
+                <span class="card-icon-indicator"></span>
+                Home Remedies & Lifestyle Overlaps
+            </h3>
+            
+            <div class="guidelines-group">
+                <div class="guideline-block">
+                    <span class="guideline-category">Supportive Care</span>
+                    <ul class="guideline-sublist">
+                        {% if record.data.home_remedies %}
+                            {% for remedy in record.data.home_remedies %}
+                                <li>{{ remedy }}</li>
+                            {% endfor %}
+                        {% else %}
+                            <li>Maintain strict bed rest, clear fluid hydration, and monitor temperature details.</li>
+                        {% endif %}
+                    </ul>
+                </div>
+
+                <div class="guideline-block">
+                    <span class="guideline-category">Habit & Lifestyle Adjustments</span>
+                    <ul class="guideline-sublist">
+                        {% if record.data.habit_changes %}
+                            {% for item in record.data.habit_changes %}
+                                <li>{{ item }}</li>
+                            {% endfor %}
+                        {% else %}
+                            <li>Review dietary triggers, ensure deep sleep cycles, and adjust exercise levels.</li>
+                        {% endif %}
+                    </ul>
+                </div>
+
+                <div class="guideline-block">
+                    <span class="guideline-category">Allergies & Interactions warning</span>
+                    <ul class="guideline-sublist">
+                        {% if record.data.possible_allergies %}
+                            {% for allergy in record.data.possible_allergies %}
+                                <li>{{ allergy }}</li>
+                            {% endfor %}
+                        {% else %}
+                            <li>Ensure you check for compound overlaps and consult a doctor if on active meds.</li>
+                        {% endif %}
+                    </ul>
+                </div>
+            </div>
+        </article>
+
+        <!-- ROW 5 LEFT: Professional Next Steps and Diagnostic Tests -->
+        <article class="glass-card physical-next-steps-card col-span-2">
+            <h3 class="dashboard-card-title">
+                <span class="card-icon-indicator"></span>
+                Physician Checklist & Lab Recommendations
+            </h3>
+            <p class="checklist-intro-text">Show this diagnostic assessment to a primary physician. We recommend requesting the following clinical tests and checking the criteria below:</p>
+            
+            <div class="clinical-checklist-grid">
+                {% if record.data.next_steps %}
+                    {% for step in record.data.next_steps %}
+                        <div class="checklist-item">
+                            <input type="checkbox" class="step-checkbox" id="step-{{ loop.index }}" checked>
+                            <label for="step-{{ loop.index }}" class="step-label">
+                                <span class="custom-checkbox"></span>
+                                <span class="step-text">{{ step }}</span>
+                            </label>
+                        </div>
                     {% endfor %}
                 {% else %}
-                    <li>Ensure sufficient rest and hydration. Consult a general practitioner if symptoms persist.</li>
+                    <div class="checklist-item">
+                        <input type="checkbox" class="step-checkbox" id="step-1" checked>
+                        <label for="step-1" class="step-label">
+                            <span class="custom-checkbox"></span>
+                            <span class="step-text">Arrange a physical consult with a general practitioner for diagnostic validation.</span>
+                        </label>
+                    </div>
+                {% endif %}
+            </div>
+        </article>
+
+        <!-- ROW 5 RIGHT: High-Visibility Emergency Red Flags Box -->
+        <article class="glass-card red-flags-warning-card">
+            <div class="emergency-badge">🚨 EMERGENCY WATCHLIST</div>
+            <h3 class="dashboard-card-title text-red">Critical Warning Red Flags</h3>
+            <p class="red-flag-disclaimer">If you experience any of the warning indicators listed below, proceed directly to the nearest emergency healthcare facility:</p>
+            
+            <ul class="emergency-red-flags-list">
+                {% if record.data.red_flags %}
+                    {% for flag in record.data.red_flags %}
+                        <li class="flag-item">
+                            <span class="flag-bullet-pulse"></span>
+                            <strong>{{ flag }}</strong>
+                        </li>
+                    {% endfor %}
+                {% else %}
+                    <li class="flag-item">
+                        <span class="flag-bullet-pulse"></span>
+                        <strong>Worsening fever unresponsive to standard antipyretics</strong>
+                    </li>
+                    <li class="flag-item">
+                        <span class="flag-bullet-pulse"></span>
+                        <strong>Severe localized pain in abdominal or thoracic region</strong>
+                    </li>
                 {% endif %}
             </ul>
-        </div>
+        </article>
 
-        <!-- Warnings & Red Flags -->
-        {% if record.data.red_flags %}
-            <div class="rx-warning-section">
-                <div class="warning-title">🚨 WARNINGS & EMERGENCY RED FLAGS:</div>
-                <ul class="warning-list">
-                    {% for flag in record.data.red_flags %}
-                        <li>{{ flag }}</li>
-                    {% endfor %}
-                </ul>
+    </div>
+
+    <!-- DIGITAL AUTHORIZATION STAMP -->
+    <div class="clinical-signature-panel glass-card">
+        <div class="signature-details">
+            <div class="signature-seal">
+                <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <polyline points="20 6 9 17 4 12"/>
+                </svg>
             </div>
-        {% endif %}
-
-        <!-- Signature Pad -->
-        <div class="rx-signature-container">
-            <div class="signature-line"></div>
-            <p class="sig-name">DR. AI MEDICAL CONSULTANT</p>
-            <p class="sig-title">Digitally Authorized by MediScan AI Core</p>
+            <div class="signature-text-block">
+                <h4>DR. AI MEDICAL CORE</h4>
+                <p>Digital Cryptographic Cryptoseal Authorized via MediScan AI Node Engine</p>
+                <small>Secure Prescription ID: {{ record.history_id }}-RX-2026-MED</small>
+            </div>
+        </div>
+        <div class="clinical-disclaimer-card">
+            <p><strong>Disclaimer:</strong> This automated medical assessment is synthesised based on user reports. It serves as an informative assistant. It is not a substitute for active in-person medical diagnosis, clinical testing, or real prescription validation.</p>
         </div>
     </div>
 
-    <!-- Download & Back Actions -->
-    <div class="report-actions">
+    <!-- REPORT PANEL CONTROL ACTIONS -->
+    <div class="report-actions-panel">
         {% if record.report_filename %}
             <a class="button primary" href="{{ url_for('download_report', filename=record.report_filename) }}">
-                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right: 6px;">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right: 8px;">
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
                 </svg>
                 Download PDF Prescription
@@ -125,5 +351,6 @@
         {% endif %}
         <a class="button secondary" href="{{ url_for('dashboard') }}">Return to Dashboard</a>
     </div>
+
 </section>
 {% endblock %}

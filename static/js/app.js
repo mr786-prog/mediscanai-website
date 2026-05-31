@@ -18,6 +18,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // ----------------------------------------------------
     // 3. HOLOGRAPHIC 3D SCANNING TRANSITION
     // ----------------------------------------------------
+    // 3. HOLOGRAPHIC 3D SCANNING TRANSITION
+    // ----------------------------------------------------
     const diagnosisForm = document.getElementById('diagnosis-form');
     if (diagnosisForm) {
         setupDiagnosisScanner(diagnosisForm);
@@ -35,6 +37,14 @@ document.addEventListener('DOMContentLoaded', () => {
             gsap.to(button, { scale: 1.0, duration: 0.3, ease: 'power2.out' });
         });
     });
+
+    // ----------------------------------------------------
+    // 5. PREMIUM TELEHEALTH CONSULTATION CHAT INITIALIZATION
+    // ----------------------------------------------------
+    const chatForm = document.getElementById('consultation-chat-form');
+    if (chatForm) {
+        initTelehealthChat(chatForm);
+    }
 });
 
 // ========================================================
@@ -512,4 +522,194 @@ function setupDiagnosisScanner(form) {
             form.submit();
         }, 4400);
     });
+}
+
+// ========================================================
+// PREMIUM TELEHEALTH CONSULTATION CHAT INITIALIZATION
+// ========================================================
+function initTelehealthChat(form) {
+    const chatViewport = document.getElementById('chat-viewport');
+    const textarea = document.getElementById('answer');
+    const voiceTrigger = document.getElementById('voice-trigger');
+    const dictationStatus = document.getElementById('dictation-status');
+    const quickChips = document.querySelectorAll('.quick-chip-btn');
+    const typingIndicator = document.getElementById('doctor-typing-indicator');
+
+    // 1. Auto-scroll viewport to the bottom on load
+    if (chatViewport) {
+        chatViewport.scrollTop = chatViewport.scrollHeight;
+    }
+
+    // 2. Auto-growing Textarea
+    if (textarea) {
+        textarea.addEventListener('input', () => {
+            textarea.style.height = 'auto';
+            textarea.style.height = (textarea.scrollHeight) + 'px';
+        });
+        
+        // Enter key to submit, Shift+Enter for newline
+        textarea.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                if (textarea.value.trim()) {
+                    form.submit();
+                }
+            }
+        });
+    }
+
+    // 3. Quick Suggestion Chips click mapping
+    quickChips.forEach(chip => {
+        chip.addEventListener('click', () => {
+            if (textarea) {
+                textarea.value = chip.getAttribute('data-value');
+                textarea.focus();
+                // Trigger auto-grow
+                textarea.style.height = 'auto';
+                textarea.style.height = (textarea.scrollHeight) + 'px';
+                
+                // Elastic bounce animation on chip for physical feedback
+                gsap.fromTo(chip, { scale: 0.9 }, { scale: 1, duration: 0.3, ease: 'back.out(2)' });
+            }
+        });
+    });
+
+    // 4. Voice Dictation Integration (Web Speech API)
+    if (voiceTrigger && textarea) {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        
+        if (SpeechRecognition) {
+            const recognition = new SpeechRecognition();
+            recognition.continuous = false;
+            recognition.interimResults = false;
+            recognition.lang = 'en-US';
+
+            let isListening = false;
+
+            voiceTrigger.addEventListener('click', () => {
+                if (!isListening) {
+                    recognition.start();
+                } else {
+                    recognition.stop();
+                }
+            });
+
+            recognition.onstart = () => {
+                isListening = true;
+                voiceTrigger.classList.add('mic-active');
+                if (dictationStatus) dictationStatus.classList.remove('hidden');
+                
+                // Pulse animation using GSAP on mic button
+                gsap.to(voiceTrigger, { scale: 1.15, repeat: -1, yoyo: true, duration: 0.6, ease: 'power1.inOut' });
+            };
+
+            recognition.onresult = (event) => {
+                const transcript = event.results[0][0].transcript;
+                if (textarea.value.trim()) {
+                    textarea.value += ' ' + transcript;
+                } else {
+                    textarea.value = transcript;
+                }
+                
+                // Trigger textarea auto-grow
+                textarea.style.height = 'auto';
+                textarea.style.height = (textarea.scrollHeight) + 'px';
+            };
+
+            recognition.onerror = (e) => {
+                console.error("Speech recognition error:", e);
+                stopListening();
+            };
+
+            recognition.onend = () => {
+                stopListening();
+            };
+
+            function stopListening() {
+                isListening = false;
+                voiceTrigger.classList.remove('mic-active');
+                if (dictationStatus) dictationStatus.classList.add('hidden');
+                
+                // Cancel GSAP scale animation
+                gsap.killTweensOf(voiceTrigger);
+                gsap.to(voiceTrigger, { scale: 1, duration: 0.3, ease: 'power2.out' });
+                textarea.focus();
+            }
+        } else {
+            // Hide or disable mic if browser doesn't support Web Speech API
+            voiceTrigger.style.opacity = '0.4';
+            voiceTrigger.title = 'Speech-to-Text not supported in this browser';
+            voiceTrigger.addEventListener('click', () => {
+                alert('Voice dictation is supported in Chrome, Safari, and Edge. Please use a modern browser for voice support.');
+            });
+        }
+    }
+
+    // 5. Entrance GSAP Animation for Chat Bubbles
+    const chatRows = document.querySelectorAll('.chat-bubble-row');
+    if (chatRows.length > 0) {
+        // Animate the last couple of rows to make the feed feel alive
+        const animateRows = Array.from(chatRows).slice(-3);
+        gsap.fromTo(animateRows, 
+            { opacity: 0, y: 30, scale: 0.95 },
+            { opacity: 1, y: 0, scale: 1, duration: 0.6, stagger: 0.15, ease: 'power3.out' }
+        );
+    }
+
+    // On submit: show patient answer in chat first, then "Dr AI is thinking"
+    form.addEventListener('submit', (e) => {
+        const answerText = textarea ? textarea.value.trim() : '';
+        if (!answerText) {
+            e.preventDefault();
+            return;
+        }
+
+        e.preventDefault();
+
+        const chatFeed = chatViewport ? chatViewport.querySelector('.chat-history-feed') : null;
+        const patientInitial = form.dataset.patientInitial || 'P';
+        const submitBtn = document.getElementById('submit-btn');
+
+        if (chatFeed && typingIndicator) {
+            const patientRow = document.createElement('div');
+            patientRow.className = 'chat-bubble-row patient-row';
+            patientRow.innerHTML = `
+                <div class="chat-bubble-premium patient-bubble-premium">
+                    <span class="chat-sender-badge">PATIENT (YOU)</span>
+                    <div class="bubble-content-premium">${escapeHtml(answerText)}</div>
+                </div>
+                <div class="chat-avatar-mini patient-avatar-mini">${escapeHtml(patientInitial)}</div>
+            `;
+            chatFeed.insertBefore(patientRow, typingIndicator);
+
+            gsap.fromTo(patientRow,
+                { opacity: 0, y: 20, scale: 0.97 },
+                { opacity: 1, y: 0, scale: 1, duration: 0.35, ease: 'power2.out' }
+            );
+
+            chatViewport.scrollTop = chatViewport.scrollHeight;
+
+            setTimeout(() => {
+                typingIndicator.classList.remove('hidden');
+                chatViewport.scrollTop = chatViewport.scrollHeight;
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    submitBtn.style.opacity = '0.5';
+                }
+                form.submit();
+            }, 450);
+        } else {
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.style.opacity = '0.5';
+            }
+            form.submit();
+        }
+    });
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
 }
