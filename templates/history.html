@@ -2,7 +2,11 @@
 
 {% block content %}
 <section class="history-shell">
-    <h2>Diagnosis History</h2>
+    <div class="history-header glass-card">
+        <p class="eyebrow">History & prescriptions</p>
+        <h2>Diagnosis History</h2>
+        <p class="lead-copy">Every consultation is stored with its detailed AI report and downloadable prescription PDF for quick follow-up.</p>
+    </div>
     {% if records %}
         <div class="history-grid">
             {% for record in records %}

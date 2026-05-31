@@ -1,7 +1,9 @@
 import os
+import re
 import json
 import sqlite3
 import requests
+import urllib3
 from datetime import datetime
 from pathlib import Path
 from fpdf import FPDF
@@ -9,6 +11,14 @@ from fpdf.enums import XPos, YPos
 from flask import Flask, render_template, redirect, url_for, request, flash, session, send_from_directory
 from werkzeug.security import generate_password_hash, check_password_hash
 from dotenv import load_dotenv
+
+try:
+    import certifi
+    DEFAULT_SSL_VERIFY = certifi.where()
+except ImportError:
+    DEFAULT_SSL_VERIFY = True
+
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 load_dotenv()
 
@@ -21,6 +31,51 @@ app = Flask(__name__)
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "change-me-please")
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "sk-your-openrouter-key")
 API_URL = os.getenv("OPENROUTER_API_URL", "https://openrouter.ai/api/v1/chat/completions")
+
+
+def _ssl_verify_setting():
+    setting = os.getenv("OPENROUTER_SSL_VERIFY", "auto").strip().lower()
+    if setting in ("0", "false", "no"):
+        return False
+    if setting in ("1", "true", "yes"):
+        return DEFAULT_SSL_VERIFY
+    return DEFAULT_SSL_VERIFY
+
+
+def call_openrouter_api(payload):
+    """Call OpenRouter; retry without SSL verification if the local cert store fails."""
+    headers = {
+        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+        "Content-Type": "application/json",
+    }
+    verify = _ssl_verify_setting()
+    try:
+        response = requests.post(API_URL, headers=headers, json=payload, timeout=30, verify=verify)
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.SSLError:
+        app.logger.warning("OpenRouter SSL verification failed; retrying without certificate verification.")
+        response = requests.post(API_URL, headers=headers, json=payload, timeout=30, verify=False)
+        response.raise_for_status()
+        return response.json()
+
+
+def parse_doctor_json(text):
+    text = (text or "").strip()
+    if text.startswith("```json"):
+        text = text[7:]
+    elif text.startswith("```"):
+        text = text[3:]
+    if text.endswith("```"):
+        text = text[:-3]
+    text = text.strip()
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        match = re.search(r"\{.*\}", text, re.DOTALL)
+        if match:
+            return json.loads(match.group(0))
+        raise
 
 
 def get_db_connection():
@@ -236,11 +291,6 @@ The JSON schema must look exactly like this:
 }}
 """
 
-    headers = {
-        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-        "Content-Type": "application/json",
-    }
-
     payload = {
         "model": "openai/gpt-4o-mini",
         "messages": [{"role": "user", "content": prompt}],
@@ -249,11 +299,10 @@ The JSON schema must look exactly like this:
     }
 
     try:
-        response = requests.post(API_URL, headers=headers, json=payload, timeout=30)
-        response.raise_for_status()
-        data = response.json()
+        data = call_openrouter_api(payload)
         return data["choices"][0]["message"]["content"].strip()
     except Exception as exc:
+        app.logger.error("Diagnosis API failed: %s", exc)
         return f"Error fetching diagnosis: {exc}"
 
 
@@ -296,17 +345,125 @@ def should_finalize_consultation(answers):
     return len(answers) >= MAX_CONSULTATION_QUESTIONS
 
 
-def normalize_doctor_result(doctor_result, answer_count):
+def normalize_doctor_result(doctor_result, answer_count, answers=None, symptoms=""):
     """Enforce min 3 / max 10 question rules regardless of model output."""
     result = dict(doctor_result)
-    if answer_count < MIN_CONSULTATION_QUESTIONS:
-        result['ready_to_diagnose'] = False
-        if not result.get('question', '').strip():
-            result['question'] = "Could you describe when your symptoms started and whether anything makes them better or worse?"
-    elif answer_count >= MAX_CONSULTATION_QUESTIONS:
+    answers = answers or []
+
+    if answer_count >= MAX_CONSULTATION_QUESTIONS:
         result['ready_to_diagnose'] = True
         result['question'] = ''
+        return result
+
+    question = (result.get('question') or '').strip()
+    if _is_unusable_question(question, answers):
+        question = ''
+
+    if answer_count < MIN_CONSULTATION_QUESTIONS:
+        result['ready_to_diagnose'] = False
+        if not question:
+            result['question'] = generate_local_doctor_question(symptoms, answers)
+    else:
+        if question and _question_already_asked(question, answers):
+            result['question'] = generate_local_doctor_question(symptoms, answers)
+        else:
+            result['question'] = question
+
     return result
+
+
+def _is_unusable_question(question, answers):
+    if not question:
+        return True
+    if _question_already_asked(question, answers):
+        return True
+    lowered = question.strip().lower()
+    if 'whether the pain is constant' in lowered:
+        return True
+    return False
+
+
+def _question_already_asked(question, answers):
+    normalized = question.strip().lower()
+    if not normalized:
+        return False
+    for item in answers:
+        prev = (item.get('question') or '').strip().lower()
+        if prev and prev == normalized:
+            return True
+    return False
+
+
+def _collect_asked_questions(answers):
+    return {(item.get('question') or '').strip().lower() for item in answers if item.get('question')}
+
+
+def generate_local_doctor_question(symptoms, answers, duration="", severity=""):
+    """Symptom-aware offline questions when the API is unavailable or returns junk."""
+    asked = _collect_asked_questions(answers)
+    symptom_text = (symptoms or "your symptoms").strip()
+    symptom_lower = symptom_text.lower()
+
+    tailored = []
+    if any(word in symptom_lower for word in ('cough', 'throat', 'cold', 'flu', 'breath', 'wheez')):
+        tailored = [
+            f"Regarding your {symptom_text}, do you have a cough and is it dry or with phlegm?",
+            "Have you noticed any fever, sore throat, or nasal congestion along with this?",
+            "Does breathing feel harder during activity or even while resting?",
+        ]
+    elif any(word in symptom_lower for word in ('head', 'migraine', 'dizzy', 'vertigo')):
+        tailored = [
+            f"For your {symptom_text}, is the discomfort on one side or all over your head?",
+            "Do bright light or loud sounds make the symptoms worse?",
+            "Have you experienced nausea, vomiting, or vision changes with this?",
+        ]
+    elif any(word in symptom_lower for word in ('stomach', 'abdomen', 'belly', 'nausea', 'vomit', 'diarrhea', 'constipation')):
+        tailored = [
+            f"With your {symptom_text}, can you point to where the discomfort is strongest?",
+            "Have you noticed any changes in appetite, bowel movements, or vomiting?",
+            "Does eating or skipping meals make the symptoms better or worse?",
+        ]
+    elif any(word in symptom_lower for word in ('skin', 'rash', 'itch', 'hives', 'acne')):
+        tailored = [
+            f"Where on your body did the {symptom_text} first appear, and is it spreading?",
+            "Is the affected area itchy, painful, or warm to touch?",
+            "Have you started any new soap, food, medicine, or cosmetic recently?",
+        ]
+    elif any(word in symptom_lower for word in ('fever', 'temperature', 'chills')):
+        tailored = [
+            "What is the highest temperature you have recorded, and how are you measuring it?",
+            "Do the fever episodes come with chills, sweating, or body aches?",
+            "Have you taken any medicine for the fever, and did it help?",
+        ]
+    elif any(word in symptom_lower for word in ('pain', 'ache', 'hurt', 'sore')):
+        tailored = [
+            f"For your {symptom_text}, is the discomfort constant, worsening, or does it come and go?",
+            "On a scale of 1 to 10, how severe is it at its worst?",
+            "Does rest, movement, or any position make the pain better or worse?",
+        ]
+    else:
+        tailored = [
+            f"Can you describe your {symptom_text} in more detail — what it feels like and when it is worst?",
+            f"You mentioned {symptom_text} for {duration or 'some time'} at {severity or 'unspecified'} severity — has that changed recently?",
+        ]
+
+    generic = [
+        f"Besides {symptom_text}, have you noticed any other new symptoms?",
+        "Have you taken any medication or home remedy, and did it change how you feel?",
+        "Have you had similar symptoms before, or is this the first time?",
+        "Does anything specific trigger your symptoms or give you relief?",
+        "How much are these symptoms affecting your sleep, work, or daily routine?",
+    ]
+
+    for question in tailored + generic:
+        if question.strip().lower() not in asked:
+            return question
+
+    return "Is there any other detail about your condition that would help me understand it better?"
+
+
+def _pick_fallback_question(answers, symptoms=""):
+    return generate_local_doctor_question(symptoms, answers)
 
 
 def get_patient_history_summary(user_id):
@@ -347,6 +504,8 @@ def query_doctor_question(patient_info, symptoms, duration, severity, answers, h
 
     answer_log = "\n".join(f"Q: {item['question']}\nA: {item['answer']}" for item in answers) if answers else "No follow-up answers yet."
     answer_count = len(answers)
+    asked_questions = [item.get('question', '') for item in answers if item.get('question')]
+    asked_questions_block = "\n".join(f"- {q}" for q in asked_questions) if asked_questions else "- None yet"
 
     min_questions_instruction = ""
     if answer_count < MIN_CONSULTATION_QUESTIONS:
@@ -398,6 +557,11 @@ Baseline symptoms:
 Collected answers so far: {answer_count} / {MAX_CONSULTATION_QUESTIONS} (minimum before concluding: {MIN_CONSULTATION_QUESTIONS})
 {answer_log}
 
+Questions already asked (DO NOT repeat or rephrase any of these):
+{asked_questions_block}
+Your next question MUST be clinically distinct from every question listed above.
+Tailor every question to the patient's actual chief complaint ({symptoms}). Do NOT ask about pain unless the patient mentioned pain.
+
 Return ONLY valid JSON with:
 {{
   "ready_to_diagnose": false,
@@ -405,11 +569,6 @@ Return ONLY valid JSON with:
   "confidence": "Low/Medium/High"
 }}
 """
-
-    headers = {
-        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-        "Content-Type": "application/json",
-    }
 
     payload = {
         "model": "openai/gpt-4o-mini",
@@ -419,22 +578,65 @@ Return ONLY valid JSON with:
     }
 
     try:
-        response = requests.post(API_URL, headers=headers, json=payload, timeout=30)
-        response.raise_for_status()
-        data = response.json()
+        data = call_openrouter_api(payload)
         text = data["choices"][0]["message"]["content"].strip()
-        if text.startswith("```json"):
-            text = text[7:]
-        if text.endswith("```"):
-            text = text[:-3]
-        parsed = json.loads(text)
-        return normalize_doctor_result(parsed, len(answers))
-    except Exception:
+        parsed = parse_doctor_json(text)
+        result = normalize_doctor_result(parsed, len(answers), answers, symptoms=symptoms)
+        question = (result.get('question') or '').strip()
+        if not result.get('ready_to_diagnose') and (not question or _question_already_asked(question, answers)):
+            return _retry_doctor_question(
+                patient_info, symptoms, duration, severity, answers, history_summary, asked_questions
+            )
+        return result
+    except Exception as exc:
+        app.logger.error("Doctor question API failed: %s", exc)
         return normalize_doctor_result({
             "ready_to_diagnose": False,
-            "question": "Can you tell me whether the pain is constant, worsening, or comes and goes?",
+            "question": generate_local_doctor_question(symptoms, answers, duration, severity),
             "confidence": "Medium",
-        }, len(answers))
+        }, len(answers), answers, symptoms=symptoms)
+
+
+def _retry_doctor_question(patient_info, symptoms, duration, severity, answers, history_summary, asked_questions):
+    """One retry when the model returns empty or duplicate questions."""
+    asked_list = "\n".join(f"- {q}" for q in asked_questions) if asked_questions else "- None yet"
+    prompt = f"""
+You are a senior physician continuing a clinical consultation.
+The patient has already answered {len(answers)} follow-up question(s).
+You MUST ask exactly ONE new follow-up question that is completely different from all previous questions.
+
+DO NOT repeat or rephrase any of these already-asked questions:
+{asked_list}
+
+Patient: {patient_info['name']}, {patient_info['age']} years, {patient_info['gender']}
+Symptoms: {symptoms} | Duration: {duration} | Severity: {severity}
+Tailor the question to these specific symptoms. Do NOT ask about pain unless pain was mentioned.
+
+Return ONLY valid JSON:
+{{
+  "ready_to_diagnose": false,
+  "question": "one new distinct clinical question",
+  "confidence": "Low/Medium/High"
+}}
+"""
+    payload = {
+        "model": "openai/gpt-4o-mini",
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": 0.4,
+        "max_tokens": 200,
+    }
+    try:
+        data = call_openrouter_api(payload)
+        text = data["choices"][0]["message"]["content"].strip()
+        parsed = parse_doctor_json(text)
+    except Exception as exc:
+        app.logger.error("Doctor question retry failed: %s", exc)
+        parsed = {"ready_to_diagnose": False, "question": "", "confidence": "Medium"}
+
+    result = normalize_doctor_result(parsed, len(answers), answers, symptoms=symptoms)
+    if not result.get('ready_to_diagnose') and not (result.get('question') or '').strip():
+        result['question'] = generate_local_doctor_question(symptoms, answers, duration, severity)
+    return result
 
 
 
@@ -910,7 +1112,6 @@ def doctor_consultation():
         })
         session['consultation'] = session_data
 
-        # Only finalize if we have asked at least MIN_CONSULTATION_QUESTIONS and hit max
         if should_finalize_consultation(session_data['answers']):
             history_id = finalize_diagnosis(user, patient, session_data)
             session.pop('consultation', None)
@@ -918,9 +1119,11 @@ def doctor_consultation():
             return redirect(url_for('diagnosis_result', history_id=history_id))
 
         patient_info = build_patient_context(patient)
-        doctor_result = query_doctor_question(patient_info, session_data['symptoms'], session_data['duration'], session_data['severity'], session_data['answers'], history_summary=history_summary)
+        doctor_result = query_doctor_question(
+            patient_info, session_data['symptoms'], session_data['duration'],
+            session_data['severity'], session_data['answers'], history_summary=history_summary
+        )
 
-        # Check if doctor is ready to diagnose, but only after MIN_CONSULTATION_QUESTIONS
         if doctor_result.get('ready_to_diagnose') and len(session_data['answers']) >= MIN_CONSULTATION_QUESTIONS:
             history_id = finalize_diagnosis(user, patient, session_data)
             session.pop('consultation', None)
@@ -930,24 +1133,27 @@ def doctor_consultation():
         session_data['last_question'] = doctor_result.get('question', '')
         session['consultation'] = session_data
 
-    if should_finalize_consultation(session_data['answers']):
+    elif should_finalize_consultation(session_data['answers']):
         history_id = finalize_diagnosis(user, patient, session_data)
         session.pop('consultation', None)
         flash('AI consultation completed after gathering comprehensive clinical details.', 'success')
         return redirect(url_for('diagnosis_result', history_id=history_id))
 
-    patient_info = build_patient_context(patient)
-    doctor_result = query_doctor_question(patient_info, session_data['symptoms'], session_data['duration'], session_data['severity'], session_data['answers'], history_summary=history_summary)
+    elif not session_data.get('last_question'):
+        patient_info = build_patient_context(patient)
+        doctor_result = query_doctor_question(
+            patient_info, session_data['symptoms'], session_data['duration'],
+            session_data['severity'], session_data['answers'], history_summary=history_summary
+        )
 
-    # Check if doctor is ready to diagnose, but only after MIN_CONSULTATION_QUESTIONS
-    if doctor_result.get('ready_to_diagnose') and len(session_data['answers']) >= MIN_CONSULTATION_QUESTIONS:
-        history_id = finalize_diagnosis(user, patient, session_data)
-        session.pop('consultation', None)
-        flash('AI consultation completed and your detailed report is ready.', 'success')
-        return redirect(url_for('diagnosis_result', history_id=history_id))
+        if doctor_result.get('ready_to_diagnose') and len(session_data['answers']) >= MIN_CONSULTATION_QUESTIONS:
+            history_id = finalize_diagnosis(user, patient, session_data)
+            session.pop('consultation', None)
+            flash('AI consultation completed and your detailed report is ready.', 'success')
+            return redirect(url_for('diagnosis_result', history_id=history_id))
 
-    session_data['last_question'] = doctor_result.get('question', '')
-    session['consultation'] = session_data
+        session_data['last_question'] = doctor_result.get('question', '')
+        session['consultation'] = session_data
 
     # Build chat history for chat UI
     chat_history = []

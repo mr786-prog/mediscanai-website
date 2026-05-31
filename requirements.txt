@@ -1,5 +1,6 @@
 Flask>=2.3
 python-dotenv>=1.0
 requests>=2.30
+certifi>=2024.2.2
 fpdf2>=2.7
 Werkzeug>=2.3

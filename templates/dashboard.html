@@ -2,25 +2,37 @@
 
 {% block content %}
 <section class="dashboard-shell">
-    <div class="dashboard-grid">
-        <article class="glass-card dashboard-card">
+    <div class="dashboard-hero glass-card">
+        <div>
+            <p class="eyebrow">Wellness intelligence</p>
             <h2>Welcome back, {{ user.username }}</h2>
+            <p class="lead-copy">Track your AI-guided consultations, monitor your latest diagnosis reports, and continue your care journey with a premium clinical dashboard.</p>
+        </div>
+        <div class="dashboard-hero-badges">
+            <span class="badge-pill">Adaptive doctor interview</span>
+            <span class="badge-pill">Detailed PDF reports</span>
+            <span class="badge-pill">Premium UI</span>
+        </div>
+    </div>
+
+    <div class="dashboard-grid">
+        <article class="glass-card dashboard-card dashboard-card-highlight">
+            <h3>Care Snapshot</h3>
             {% if patient %}
-                <p class="info-line">Patient: <strong>{{ patient.name }}</strong></p>
-                <p class="info-line">Age: {{ patient.age }} | Gender: {{ patient.gender }}</p>
-                <p class="info-line">Status: Profile complete</p>
+                <p class="info-line"><strong>{{ patient.name }}</strong> • {{ patient.age }} yrs • {{ patient.gender }}</p>
+                <p class="info-line">Profile status: Complete and ready for AI triage</p>
             {% else %}
-                <p class="info-line">Profile not set up yet.</p>
+                <p class="info-line">Profile status: Not completed yet.</p>
                 <a class="button secondary" href="{{ url_for('profile') }}">Complete Profile</a>
             {% endif %}
             <div class="dashboard-actions">
-                <a class="button primary" href="{{ url_for('new_diagnosis') }}">New Diagnosis</a>
-                <a class="button secondary" href="{{ url_for('history') }}">View History</a>
+                <a class="button primary" href="{{ url_for('new_diagnosis') }}">New Symptom Review</a>
+                <a class="button secondary" href="{{ url_for('history') }}">Open History</a>
             </div>
         </article>
 
         <article class="glass-card dashboard-card">
-            <h3>Recent Diagnoses</h3>
+            <h3>Recent AI Consultations</h3>
             {% if history %}
                 <ul class="history-list">
                     {% for record in history[:5] %}
@@ -31,7 +43,7 @@
                     {% endfor %}
                 </ul>
             {% else %}
-                <p>No diagnosis history available.</p>
+                <p class="info-line">No diagnosis history available yet. Start your first adaptive consultation.</p>
             {% endif %}
         </article>
     </div>
