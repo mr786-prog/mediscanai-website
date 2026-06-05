@@ -51,8 +51,8 @@
         <div class="complaint-bubble">
           <p class="complaint-text">"{{ session.consultation.symptoms }}"</p>
           <div class="complaint-meta-row">
-            <span class="badge badge-duration">⏳ {{ session.consultation.duration }}</span>
-            <span class="badge badge-severity-{{ session.consultation.severity|lower }}">⚡ {{ session.consultation.severity }}</span>
+            <span class="badge badge-duration"> {{ session.consultation.duration }}</span>
+            <span class="badge badge-severity-{{ session.consultation.severity|lower }}">{{ session.consultation.severity }}</span>
           </div>
         </div>
       </div>
@@ -85,18 +85,6 @@
             <p>No previous diagnostic history on record.</p>
           </div>
         {% endif %}
-      </div>
-
-      <!-- Dynamic Progress block -->
-      <div class="clinical-card-block progress-section border-top">
-        <div class="progress-meta">
-          <span class="sidebar-label">Interview Progress</span>
-          <span class="progress-count">{{ answer_count }} / 10 questions (min. 3)</span>
-        </div>
-        <div class="progress-track-premium">
-          <div class="progress-fill-premium progress-fill-width-{{ answer_count }}"></div>
-        </div>
-        <p class="progress-note">Dr. AI will ask at least 3 and up to 10 follow-up questions, adapting each one to your answers before finalizing your diagnosis.</p>
       </div>
     </aside>
 

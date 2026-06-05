@@ -6,18 +6,13 @@
         <div>
             <p class="eyebrow">Wellness intelligence</p>
             <h2>Welcome back, {{ user.username }}</h2>
-            <p class="lead-copy">Track your AI-guided consultations, monitor your latest diagnosis reports, and continue your care journey with a premium clinical dashboard.</p>
-        </div>
-        <div class="dashboard-hero-badges">
-            <span class="badge-pill">Adaptive doctor interview</span>
-            <span class="badge-pill">Detailed PDF reports</span>
-            <span class="badge-pill">Premium UI</span>
+            <p class="lead-copy">Welcome to mediscan ai , your personalized AI-powered healthcare assistant. Get started by reviewing your latest health insights.</p>
         </div>
     </div>
 
     <div class="dashboard-grid">
         <article class="glass-card dashboard-card dashboard-card-highlight">
-            <h3>Care Snapshot</h3>
+            <h3>Current Profile</h3>
             {% if patient %}
                 <p class="info-line"><strong>{{ patient.name }}</strong> • {{ patient.age }} yrs • {{ patient.gender }}</p>
                 <p class="info-line">Profile status: Complete and ready for AI triage</p>

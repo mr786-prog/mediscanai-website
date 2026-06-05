@@ -21,16 +21,16 @@
 
 <section class="form-shell glass-card" id="form-container">
     <h2>New Diagnosis</h2>
-    <p>Start with your main complaint, then Dr. AI will ask at least 3 and up to 10 targeted follow-up questions — one at a time — until it can give a confident clinical recommendation.</p>
+    <p>Describe your main symptoms in detail , and then leave it up to Dr.AI. Dr.AI will analyze your symptoms and provide a comprehensive diagnosis report just for you.</p>
 
     <form method="post" id="diagnosis-form">
-        <label for="symptoms">Symptoms</label>
+        <label for="symptoms">Describe your symptoms below</label>
         <textarea id="symptoms" name="symptoms" rows="5" placeholder="e.g., Throbbing headache, high fever, sore throat for 2 days" required>{{ request.form.symptoms or '' }}</textarea>
 
-        <label for="duration">Duration</label>
+        <label for="duration">For how long have you been experiencing these symptoms?</label>
         <input id="duration" name="duration" type="text" placeholder="e.g., 3 Days, 1 Week" value="{{ request.form.duration or '' }}" required>
 
-        <label for="severity">Severity</label>
+        <label for="severity">What is the level of severity?</label>
         <select id="severity" name="severity" required>
             <option value="">Select severity</option>
             {% for option in ['Mild', 'Moderate', 'Severe'] %}
