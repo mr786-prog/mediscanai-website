@@ -890,6 +890,7 @@ def get_current_user():
 def startup():
     initialize_database()
 
+startup()
 
 @app.route('/')
 def home():
